@@ -1,30 +1,47 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <mpi.h>
-#include <unistd.h>
 #include <openssl/des.h>
 
-void encrypt(DES_cblock key, char *ciph, int len) {
-    DES_key_schedule schedule;
-    DES_set_odd_parity(&key);
-    DES_set_key_checked(&key, &schedule);
+void decrypt(long key, char *ciph, int len) {
+    DES_cblock des_key;
+    DES_key_schedule key_schedule;
 
-    // Process in 8-byte blocks
+    for (int i = 0; i < 8; ++i) {
+        des_key[i] = (key >> (i * 8)) & 0xFF;
+    }
+
+    DES_set_odd_parity(&des_key);
+    DES_set_key_checked(&des_key, &key_schedule);
+
     for (int i = 0; i < len; i += 8) {
-        DES_ecb_encrypt((DES_cblock *)(ciph + i), (DES_cblock *)(ciph + i), &schedule, DES_ENCRYPT);
+        DES_ecb_encrypt((DES_cblock *)(ciph + i), (DES_cblock *)(ciph + i), &key_schedule, DES_DECRYPT);
     }
 }
 
-void decrypt(DES_cblock key, char *ciph, int len) {
-    DES_key_schedule schedule;
-    DES_set_odd_parity(&key);
-    DES_set_key_checked(&key, &schedule);
+void encrypt(long key, char *ciph, int len) {
+    DES_cblock des_key;
+    DES_key_schedule key_schedule;
 
-    // Process in 8-byte blocks
-    for (int i = 0; i < len; i += 8) {
-        DES_ecb_encrypt((DES_cblock *)(ciph + i), (DES_cblock *)(ciph + i), &schedule, DES_DECRYPT);
+    for (int i = 0; i < 8; ++i) {
+        des_key[i] = (key >> (i * 8)) & 0xFF;
     }
+
+    DES_set_odd_parity(&des_key);
+    DES_set_key_checked(&des_key, &key_schedule);
+
+    for (int i = 0; i < len; i += 8) {
+        DES_ecb_encrypt((DES_cblock *)(ciph + i), (DES_cblock *)(ciph + i), &key_schedule, DES_ENCRYPT);
+    }
+}
+
+char search[] = "Mundo";
+int tryKey(long key, char *ciph, int len) {
+    char temp[len + 1];
+    memcpy(temp, ciph, len);
+    temp[len] = 0;
+    decrypt(key, temp, len);
+    return strstr((char *)temp, search) != NULL;
 }
 
 int main(int argc, char *argv[]) {
@@ -37,12 +54,7 @@ int main(int argc, char *argv[]) {
     char *encryption_filename = "encrypted.txt";
     char *decryption_filename = "decrypted.txt";
 
-    DES_cblock key;
-
-    // Convert the key from string to DES_cblock
-    for(int i = 0; i < 8; i++) {
-        sscanf(&(argv[1][i*2]), "%02x", (unsigned int*)&key[i]);
-    }
+    long key = strtol(argv[1], NULL, 10);
 
     // Open the input file for reading
     FILE *input_file = fopen(input_filename, "r");
@@ -77,6 +89,13 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    // Print the original data
+    printf("\nOriginal data : ");
+    for (int i = 0; i < filesize; i++) {
+        printf("%c", buffer[i]);
+    }
+    printf("\n");
+
     // Encrypt the buffer
     encrypt(key, buffer, filesize);
 
@@ -91,8 +110,6 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < filesize; i++) {
         printf("%c", buffer[i]);
     }
-    printf("\n");
-
     // Decrypt the buffer
     decrypt(key, buffer, filesize);
 
@@ -108,6 +125,13 @@ int main(int argc, char *argv[]) {
         printf("%c", buffer[i]);
     }
     printf("\n");
+
+    // // Check for the keyword in the decrypted text
+    // if (tryKey(key, buffer, filesize)) {
+    //     printf("Keyword \"%s\" found in the decrypted text.\n", search);
+    // } else {
+    //     printf("Keyword \"%s\" not found in the decrypted text.\n", search);
+    // }
 
     // Clean up
     free(buffer);
