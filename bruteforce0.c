@@ -1,3 +1,4 @@
+#include <mpi.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -35,109 +36,110 @@ void encrypt(long key, char *ciph, int len) {
     }
 }
 
-char search[] = "Mundo";
-int tryKey(long key, char *ciph, int len) {
-    char temp[len + 1];
-    memcpy(temp, ciph, len);
-    temp[len] = 0;
-    decrypt(key, temp, len);
-    return strstr((char *)temp, search) != NULL;
-}
+char search[] = "es una prueba de";
 
 int main(int argc, char *argv[]) {
+    MPI_Init(&argc, &argv); // Inicializar MPI
+    int rank, size;
+
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank); // Obtener el rank del proceso
+    MPI_Comm_size(MPI_COMM_WORLD, &size); // Obtener el número de procesos
+
     if (argc != 2) {
-        printf("Usage: %s <key>\n", argv[0]);
+        if (rank == 0) {
+            printf("Usage: %s <key>\n", argv[0]);
+        }
+        MPI_Finalize(); // Finalizar MPI
         return 1;
     }
 
     char *input_filename = "text.txt";
-    char *encryption_filename = "encrypted.txt";
-    char *decryption_filename = "decrypted.txt";
-
     long key = strtol(argv[1], NULL, 10);
 
-    // Open the input file for reading
+    // abrir el archivo de entrada
     FILE *input_file = fopen(input_filename, "r");
     if (!input_file) {
         perror("Failed to open input file");
+        MPI_Finalize(); // Finalize MPI
         return 1;
     }
 
-    // Open the encryption file for writing
-    FILE *encryption_file = fopen(encryption_filename, "w");
-    if (!encryption_file) {
-        perror("Failed to open encryption file");
-        return 1;
-    }
-
-    // Open the decryption file for writing
-    FILE *decryption_file = fopen(decryption_filename, "w");
-    if (!decryption_file) {
-        perror("Failed to open decryption file");
-        return 1;
-    }
-
-    // Get the input file size
+    // Obtener el tamaño del archivo
     fseek(input_file, 0, SEEK_END);
     long filesize = ftell(input_file);
     fseek(input_file, 0, SEEK_SET);
 
-    // Read the input file contents into a buffer
-    char *buffer = malloc(filesize);
+    // leer el archivo completo
+    char *buffer = malloc(filesize + 1);
     if (fread(buffer, 1, filesize, input_file) != filesize) {
         perror("Failed to read input file");
+        MPI_Finalize(); // Finalize MPI
         return 1;
     }
 
-    // Print the original data
-    printf("\nOriginal data : ");
-    for (int i = 0; i < filesize; i++) {
-        printf("%c", buffer[i]);
-    }
-    printf("\n");
+    // Asegurar que el buffer sea una cadena de caracteres
+    buffer[filesize] = '\0';
 
-    // Encrypt the buffer
-    encrypt(key, buffer, filesize);
-
-    // Write the encrypted data to the encryption file
-    if (fwrite(buffer, 1, filesize, encryption_file) != filesize) {
-        perror("Failed to write encryption file");
-        return 1;
+    // imprimir el contenido del archivo original
+    if (rank == 0) {
+        printf("\nOriginal data : %s\n", buffer);
     }
 
-    // Print the encrypted data
-    printf("Encrypted data: ");
-    for (int i = 0; i < filesize; i++) {
-        printf("%c", buffer[i]);
+    // Medir el tiempo de ejecución
+    double start_time = MPI_Wtime();
+
+    // Cada proceso encripta su parte
+    int chunk_size = filesize / size;
+    int start_idx = rank * chunk_size;
+    int end_idx = (rank == size - 1) ? filesize : start_idx + chunk_size;
+
+    char *local_buffer = buffer + start_idx;
+    int local_size = end_idx - start_idx;
+
+    // Cada proceso encripta su parte
+    encrypt(key, local_buffer, local_size);
+
+    // imprimir el contenido encriptado
+    // printf("Encrypted data: %s\n", local_buffer);
+
+    // sincronizar todos los procesos
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    // juntar todas las partes en el proceso 0
+    char *gathered_buffer = NULL;
+    if (rank == 0) {
+        gathered_buffer = (char *)malloc(filesize);
     }
-    // Decrypt the buffer
-    decrypt(key, buffer, filesize);
 
-    // Write the decrypted data to the decryption file
-    if (fwrite(buffer, 1, filesize, decryption_file) != filesize) {
-        perror("Failed to write decryption file");
-        return 1;
+    MPI_Gather(local_buffer, local_size, MPI_CHAR, gathered_buffer, local_size, MPI_CHAR, 0, MPI_COMM_WORLD);
+
+    if (rank == 0) {
+        decrypt(key, gathered_buffer, filesize); // desencriptar el texto completo
+        double end_time = MPI_Wtime(); // medir el tiempo de ejecución
+
+        // Imprimir el contenido desencriptado
+        printf("Decrypted data: %s\n", gathered_buffer);
+
+        // revisar si la palabra clave se encuentra en el texto desencriptado
+        char *found = strstr(gathered_buffer, search);
+
+        if (found != NULL) {
+            printf("Keyword \"%s\" found in the decrypted text.\n", search);
+        } else {
+            printf("Keyword \"%s\" not found in the decrypted text.\n", search);
+        }
+
+        // imprimir el tiempo de ejecución
+        printf("Total execution time: %f seconds\n", end_time - start_time);
+
+        // Liberar la memoria
+        free(gathered_buffer);
     }
 
-    // Print the decrypted data
-    printf("Decrypted data: ");
-    for (int i = 0; i < filesize; i++) {
-        printf("%c", buffer[i]);
-    }
-    printf("\n");
-
-    // // Check for the keyword in the decrypted text
-    // if (tryKey(key, buffer, filesize)) {
-    //     printf("Keyword \"%s\" found in the decrypted text.\n", search);
-    // } else {
-    //     printf("Keyword \"%s\" not found in the decrypted text.\n", search);
-    // }
-
-    // Clean up
+    // Liberar la memoria
     free(buffer);
     fclose(input_file);
-    fclose(encryption_file);
-    fclose(decryption_file);
+    MPI_Finalize();
 
     return 0;
 }

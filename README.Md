@@ -17,9 +17,11 @@ mpirun -np 4 ./naive
 Compilar:
 ```bash
 mpicc -o brute bruteforce0.c -lcrypto
+gcc -o naive brutenaive.c -lcrypto
 ```
 
 Correr:
 ```bash
 mpirun -np 4 ./brute <key>
+./brute <key>
 ```
