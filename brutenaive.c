@@ -1,3 +1,10 @@
+/**
+ * Programa que utiliza fuerza bruta para desencriptar un texto cifrado con DES.
+ * Codigo proporcionado por el catedratico.
+*/
+
+
+// importamos las librerias necesarias
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,7 +46,9 @@ void encrypt(long key, char *ciph, int len){
   }
 }
 
+// definimos la cadena a buscar
 char search[] = " the ";
+// definimos la funcion que prueba la llave
 int tryKey(long key, char *ciph, int len){
   char temp[len+1];
   memcpy(temp, ciph, len);

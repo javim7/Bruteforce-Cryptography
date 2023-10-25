@@ -1,13 +1,24 @@
+/**
+ * Programa naive que lee el texto des un archivo.
+ * @author Pablo Gonzalez
+ * @author Jose Hernandez
+ * @author Javier Mombiela
+*/
+
+
+// importar librerias
 #include <mpi.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <openssl/des.h>
 
+//funcion que desencripta el texto cifrado con la llave key
 void decrypt(long key, char *ciph, int len) {
     DES_cblock des_key;
     DES_key_schedule key_schedule;
 
+    // Seteamos la paridad de llave
     for (int i = 0; i < 8; ++i) {
         des_key[i] = (key >> (i * 8)) & 0xFF;
     }
@@ -20,10 +31,12 @@ void decrypt(long key, char *ciph, int len) {
     }
 }
 
+// funcion que encripta el texto con la llave key
 void encrypt(long key, char *ciph, int len) {
     DES_cblock des_key;
     DES_key_schedule key_schedule;
 
+    // Seteamos la paridad de llave
     for (int i = 0; i < 8; ++i) {
         des_key[i] = (key >> (i * 8)) & 0xFF;
     }
@@ -36,7 +49,7 @@ void encrypt(long key, char *ciph, int len) {
     }
 }
 
-char search[] = "es una prueba de";
+char search[] = "es una prueba de"; // cadena a buscar
 
 int main(int argc, char *argv[]) {
     MPI_Init(&argc, &argv); // Inicializar MPI
