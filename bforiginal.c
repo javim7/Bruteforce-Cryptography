@@ -1,6 +1,6 @@
 /**
  * Programa que utiliza fuerza bruta para desencriptar un texto cifrado con DES.
- * Codigo proporcionado por el catedratico.
+ * Codigo proporcionado por el catedratico (paralelo).
 */
 
 

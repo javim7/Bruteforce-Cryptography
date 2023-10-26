@@ -1,5 +1,5 @@
 /**
- * Programa naive que lee el texto des un archivo.
+ * Programa naive paralelo que lee el texto des un archivo.
  * @author Pablo Gonzalez
  * @author Jose Hernandez
  * @author Javier Mombiela
@@ -11,6 +11,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <openssl/des.h>
 
 //funcion que desencripta el texto cifrado con la llave key
@@ -100,6 +101,7 @@ int main(int argc, char *argv[]) {
 
     // Medir el tiempo de ejecución
     double start_time = MPI_Wtime();
+    sleep(0.2);
 
     // Cada proceso encripta su parte
     int chunk_size = filesize / size;
